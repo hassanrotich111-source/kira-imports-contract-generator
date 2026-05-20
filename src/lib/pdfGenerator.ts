@@ -220,45 +220,124 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   page.drawText("Cost as outlined in the below table:", { x: 57, y: Y(228), size: 11, font: reg });
 
   // ===== DYNAMIC TABLE =====
-  // White out table area
-  page.drawRectangle({ x: 55, y: Y(640), width: 480, height: 180, color: rgb(1, 1, 1) });
-
-  // Headers
+  // Table config
   const cols = [65, 171, 273, 357];
-  page.drawText("EQUIPMENT NAME", { x: cols[0], y: Y(252), size: 11, font: bold });
-  page.drawText("BUYING PRICE", { x: cols[1], y: Y(252), size: 11, font: bold });
-  page.drawText("SHIPPING FEE", { x: cols[2], y: Y(252), size: 11, font: bold });
-  page.drawText("IMPORTERS SERVICE FEE", { x: cols[3], y: Y(252), size: 11, font: bold });
+  const colEnd = 540; // right edge of last column
+  const tableTop = 252;
+  const tableBottomLimit = 680; // max y before needing new page
+  const minRowH = 28;
+  const headerH = 26;
 
-  // Draw rows dynamically - adjust row spacing based on equipment count
-  const rowSpacing = contract.equipments.length <= 4 ? 32 : Math.floor(140 / contract.equipments.length);
-  let rowY = 280;
+  // Helper: draw table grid lines
+  function drawTableLine(y: number, fromX: number, toX: number) {
+    page.drawLine({ start: { x: fromX, y: Y(y) }, end: { x: toX, y: Y(y) }, thickness: 0.5, color: rgb(0, 0, 0) });
+  }
+
+  // Draw header
+  page.drawText("EQUIPMENT NAME", { x: cols[0], y: Y(tableTop), size: 11, font: bold });
+  page.drawText("BUYING PRICE", { x: cols[1], y: Y(tableTop), size: 11, font: bold });
+  page.drawText("SHIPPING FEE", { x: cols[2], y: Y(tableTop), size: 11, font: bold });
+  page.drawText("IMPORTERS SERVICE FEE", { x: cols[3], y: Y(tableTop), size: 11, font: bold });
+
+  // Header borders
+  drawTableLine(tableTop + headerH - 4, 55, colEnd);
+  drawTableLine(tableTop + 16, 55, colEnd);
+
+  // Vertical column lines
+  const vLines = [55, cols[1] - 8, cols[2] - 8, cols[3] - 8, colEnd];
+
+  let rowY = tableTop + headerH + 4;
+  let rowsOnCurrentPage = 0;
 
   for (let i = 0; i < contract.equipments.length; i++) {
     const eq = contract.equipments[i];
 
-    // Equipment name - bold, handle wrapping
-    const words = eq.name.toUpperCase().split(" ");
-    if (words.length > 2 && words.slice(0, 2).join(" ").length < 18) {
-      page.drawText(words.slice(0, 2).join(" "), { x: cols[0], y: Y(rowY), size: 11, font: bold });
-      page.drawText(words.slice(2).join(" "), { x: cols[0], y: Y(rowY + 14), size: 11, font: bold });
-    } else {
-      page.drawText(eq.name.toUpperCase(), { x: cols[0], y: Y(rowY), size: 11, font: bold });
+    // Check if we need a new page for this row
+    if (rowY + minRowH > tableBottomLimit) {
+      // Finish current page table border
+      drawTableLine(rowY - 2, 55, colEnd);
+      for (const vx of vLines) {
+        page.drawLine({ start: { x: vx, y: Y(tableTop + 16) }, end: { x: vx, y: Y(rowY - 2) }, thickness: 0.5, color: rgb(0, 0, 0) });
+      }
+
+      // New page
+      page = doc.addPage([PW, PH]);
+      page.drawText("Cost Table (continued)", { x: 22, y: Y(30), size: 12, font: bold });
+
+      // Redraw header on new page
+      page.drawText("EQUIPMENT NAME", { x: cols[0], y: Y(55), size: 11, font: bold });
+      page.drawText("BUYING PRICE", { x: cols[1], y: Y(55), size: 11, font: bold });
+      page.drawText("SHIPPING FEE", { x: cols[2], y: Y(55), size: 11, font: bold });
+      page.drawText("IMPORTERS SERVICE FEE", { x: cols[3], y: Y(55), size: 11, font: bold });
+      drawTableLine(55 + headerH - 4, 55, colEnd);
+      drawTableLine(55 + 16, 55, colEnd);
+
+      rowY = 55 + headerH + 4;
+      rowsOnCurrentPage = 0;
     }
 
+    // Determine row height based on name length
+    const nameUpper = eq.name.toUpperCase();
+    const words = nameUpper.split(" ");
+    const needsWrap = bold.widthOfTextAtSize(nameUpper, 11) > (cols[1] - cols[0] - 10);
+    const rowH = needsWrap && words.length > 1 ? minRowH + 14 : minRowH;
+
+    // Equipment name
+    if (needsWrap && words.length > 1) {
+      // Split into two lines
+      let line1 = "";
+      let line2 = "";
+      for (const w of words) {
+        const test = line1 ? `${line1} ${w}` : w;
+        if (bold.widthOfTextAtSize(test, 11) < (cols[1] - cols[0] - 10)) {
+          line1 = test;
+        } else {
+          line2 = line2 ? `${line2} ${w}` : w;
+        }
+      }
+      page.drawText(line1, { x: cols[0], y: Y(rowY), size: 11, font: bold });
+      if (line2) page.drawText(line2, { x: cols[0], y: Y(rowY + 14), size: 11, font: bold });
+    } else {
+      page.drawText(nameUpper, { x: cols[0], y: Y(rowY), size: 11, font: bold });
+    }
+
+    // Values
     page.drawText(fmt(eq.buyingPrice), { x: cols[1], y: Y(rowY), size: 11, font: reg });
     page.drawText(fmt(eq.shippingFee), { x: cols[2], y: Y(rowY), size: 11, font: reg });
     page.drawText(fmt(eq.importerFee), { x: cols[3], y: Y(rowY), size: 11, font: reg });
 
-    rowY += rowSpacing;
+    // Row border
+    drawTableLine(rowY + rowH - 4, 55, colEnd);
+
+    rowY += rowH;
+    rowsOnCurrentPage++;
   }
 
-  // Totals
-  rowY += 5;
-  page.drawText("TOTALS", { x: cols[0], y: Y(rowY), size: 12, font: bold });
-  page.drawText(fmt(totalBP), { x: cols[1], y: Y(rowY), size: 12, font: bold });
-  page.drawText(fmt(totalShipping), { x: cols[2], y: Y(rowY), size: 12, font: bold });
-  page.drawText(fmt(totalImporterFee), { x: cols[3], y: Y(rowY), size: 12, font: bold });
+  // Check if totals fit on current page
+  if (rowY + 30 > tableBottomLimit) {
+    // Finish current table
+    drawTableLine(rowY - 2, 55, colEnd);
+    for (const vx of vLines) {
+      page.drawLine({ start: { x: vx, y: Y(rowsOnCurrentPage === 0 ? tableTop + 16 : tableTop + 16) }, end: { x: vx, y: Y(rowY - 2) }, thickness: 0.5, color: rgb(0, 0, 0) });
+    }
+    page = doc.addPage([PW, PH]);
+    rowY = 55;
+  }
+
+  // Totals row
+  drawTableLine(rowY + 2, 55, colEnd);
+  page.drawText("TOTALS", { x: cols[0], y: Y(rowY + 8), size: 12, font: bold });
+  page.drawText(fmt(totalBP), { x: cols[1], y: Y(rowY + 8), size: 12, font: bold });
+  page.drawText(fmt(totalShipping), { x: cols[2], y: Y(rowY + 8), size: 12, font: bold });
+  page.drawText(fmt(totalImporterFee), { x: cols[3], y: Y(rowY + 8), size: 12, font: bold });
+  drawTableLine(rowY + 26, 55, colEnd);
+
+  // Vertical lines for table body
+  const tableBodyTop = rowsOnCurrentPage > 0 ? tableTop + 16 : 55 + 16;
+  const tableBodyBottom = rowY + 26;
+  for (const vx of vLines) {
+    page.drawLine({ start: { x: vx, y: Y(tableBodyTop) }, end: { x: vx, y: Y(tableBodyBottom) }, thickness: 0.5, color: rgb(0, 0, 0) });
+  }
 
   // ===== 4. Incoterms =====
   let sectionY = rowY + 50;
