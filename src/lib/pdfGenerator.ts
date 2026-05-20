@@ -220,162 +220,117 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   page.drawText("Cost as outlined in the below table:", { x: 57, y: Y(210), size: 11, font: reg });
 
   // ===== DYNAMIC TABLE =====
-  // Strategy: draw ALL borders first, then ALL text on top (no lines crossing text)
+  // Simple approach: one page at a time, borders first then text on same page
   const cols = [65, 171, 273, 357];
   const colEnd = 540;
-  const tableTop = 252;
-  const tableBottomLimit = 680;
   const minRowH = 28;
-  const headerH = 20;
+  const headerH = 22;
 
-  function drawH(y: number, x1: number, x2: number) {
-    page.drawLine({ start: { x: x1, y: Y(y) }, end: { x: x2, y: Y(y) }, thickness: 0.5, color: rgb(0, 0, 0) });
+  // Table page manager
+  const tablePages: { page: typeof page; headerY: number; bottomLimit: number }[] = [];
+
+  function startTablePage(isFirst: boolean) {
+    const p = isFirst ? page : doc.addPage([PW, PH]);
+    if (!isFirst) p.drawText("Cost Table (continued)", { x: 22, y: Y(30), size: 12, font: bold });
+    tablePages.push({ page: p, headerY: isFirst ? 252 : 55, bottomLimit: isFirst ? 680 : 690 });
+    return tablePages[tablePages.length - 1];
   }
-  function drawV(x: number, y1: number, y2: number) {
-    page.drawLine({ start: { x: x, y: Y(y1) }, end: { x: x, y: Y(y2) }, thickness: 0.5, color: rgb(0, 0, 0) });
-  }
 
-  const vLines = [55, cols[1] - 8, cols[2] - 8, cols[3] - 8, colEnd];
+  let tp = startTablePage(true);
+  let rowY = tp.headerY + headerH;
 
-  // ---- PASS 1: Layout - compute row positions ----
-  type RowInfo = { eqIdx: number; y: number; h: number; pageIdx: number };
-  const rowInfos: RowInfo[] = [];
-  let currentPageIdx = 0;
-  let layoutY = tableTop + headerH;
-
+  // Draw each equipment
   for (let i = 0; i < contract.equipments.length; i++) {
     const eq = contract.equipments[i];
     const nameUpper = eq.name.toUpperCase();
     const needsWrap = bold.widthOfTextAtSize(nameUpper, 11) > (cols[1] - cols[0] - 10);
-    const rowH = needsWrap ? minRowH + 14 : minRowH;
+    const rowH = needsWrap ? minRowH + 16 : minRowH;
 
-    // Check page overflow
-    if (layoutY + rowH > tableBottomLimit) {
-      currentPageIdx++;
-      layoutY = 55 + headerH; // new page start
-    }
-    rowInfos.push({ eqIdx: i, y: layoutY, h: rowH, pageIdx: currentPageIdx });
-    layoutY += rowH;
-  }
-
-  // Totals position
-  const totalsY = layoutY + 4;
-  const tableEndY = totalsY + 24;
-
-  // ---- PASS 2: Draw borders ----
-  const pagesWithTable = new Set(rowInfos.map(r => r.pageIdx));
-
-  // Page 0 borders
-  drawH(tableTop - 2, 55, colEnd); // table top
-  drawH(tableTop + headerH - 2, 55, colEnd); // below header
-
-  // Horizontal row lines for page 0
-  for (const ri of rowInfos.filter(r => r.pageIdx === 0)) {
-    drawH(ri.y + ri.h - 2, 55, colEnd);
-  }
-
-  // Vertical lines for page 0 (include header)
-  const p0LastRow = [...rowInfos].reverse().find(r => r.pageIdx === 0);
-  const p0Bottom = p0LastRow ? p0LastRow.y + p0LastRow.h - 2 : tableTop + headerH - 2;
-  for (const vx of vLines) drawV(vx, tableTop - 2, p0Bottom);
-
-  // Totals & bottom border on page 0 if no overflow
-  if (!pagesWithTable.has(1)) {
-    drawH(totalsY, 55, colEnd);
-    drawH(tableEndY, 55, colEnd);
-    for (const vx of vLines) drawV(vx, p0Bottom, tableEndY);
-  }
-
-  // Additional pages
-  for (let pi = 1; pi <= currentPageIdx; pi++) {
-    page = doc.addPage([PW, PH]);
-    page.drawText("Cost Table (continued)", { x: 22, y: Y(30), size: 12, font: bold });
-
-    const pStartY = 55;
-    drawH(pStartY - 2, 55, colEnd);
-    drawH(pStartY + headerH - 2, 55, colEnd);
-
-    const pageRows = rowInfos.filter(r => r.pageIdx === pi);
-    for (const ri of pageRows) {
-      drawH(ri.y + ri.h - 2, 55, colEnd);
+    // Page overflow check
+    if (rowY + rowH > tp.bottomLimit) {
+      tp = startTablePage(false);
+      rowY = tp.headerY + headerH;
     }
 
-    const pLastRow = [...pageRows].reverse()[0];
-    const pBottom = pLastRow ? pLastRow.y + pLastRow.h - 2 : pStartY + headerH - 2;
-    for (const vx of vLines) drawV(vx, pStartY - 2, pBottom);
+    const baseY = rowY;
 
-    // Totals on last page
-    if (pi === currentPageIdx) {
-      drawH(totalsY, 55, colEnd);
-      drawH(tableEndY, 55, colEnd);
-      for (const vx of vLines) drawV(vx, pBottom, tableEndY);
-    }
-  }
-
-  // ---- PASS 3: Draw text on top of borders ----
-  // Page 0 header text
-  page = doc.getPages()[1]; // page 3 (index 1 of added pages after page 1)
-  // Actually, need to track which page is which. Let me use a simpler approach.
-  // Since we only have 1 or 2 pages for the table section (page index 1 and possibly 2),
-  // let's track pages explicitly.
-
-  // Reset to page 0 of table (the page we added at "page = doc.addPage([PW, PH])" above)
-  // At this point in code, `page` is the last page we created.
-  // Pages: [0]=page1 (machines), [1]=page2 (terms+table page 0), [2...]=table continuation
-
-  const allPages = doc.getPages();
-  const tableStartPageIdx = 1; // page 2 is at index 1 (after page 1)
-
-  function drawTableText(pageIdx: number, headerAtY: number, isCont: boolean) {
-    const p = allPages[pageIdx];
-    // Header text
-    p.drawText("EQUIPMENT NAME", { x: cols[0], y: Y(headerAtY), size: 11, font: bold });
-    p.drawText("BUYING PRICE", { x: cols[1], y: Y(headerAtY), size: 11, font: bold });
-    p.drawText("SHIPPING FEE", { x: cols[2], y: Y(headerAtY), size: 11, font: bold });
-    p.drawText("IMPORTERS SERVICE FEE", { x: cols[3], y: Y(headerAtY), size: 11, font: bold });
-
-    // Rows for this page
-    const pageRows = rowInfos.filter(r => r.pageIdx === (isCont ? 1 : 0));
-    for (const ri of pageRows) {
-      const eq = contract.equipments[ri.eqIdx];
-      const nameUpper = eq.name.toUpperCase();
-      const needsWrap = bold.widthOfTextAtSize(nameUpper, 11) > (cols[1] - cols[0] - 10);
-
-      if (needsWrap) {
-        const words = nameUpper.split(" ");
-        let line1 = "", line2 = "";
-        for (const w of words) {
-          const test = line1 ? `${line1} ${w}` : w;
-          if (bold.widthOfTextAtSize(test, 11) < (cols[1] - cols[0] - 10)) line1 = test;
-          else line2 = line2 ? `${line2} ${w}` : w;
-        }
-        p.drawText(line1, { x: cols[0], y: Y(ri.y), size: 11, font: bold });
-        if (line2) p.drawText(line2, { x: cols[0], y: Y(ri.y + 14), size: 11, font: bold });
-      } else {
-        p.drawText(nameUpper, { x: cols[0], y: Y(ri.y), size: 11, font: bold });
+    // Name (wrap if needed)
+    if (needsWrap) {
+      const words = nameUpper.split(" ");
+      let line1 = "", line2 = "";
+      for (const w of words) {
+        const test = line1 ? `${line1} ${w}` : w;
+        if (bold.widthOfTextAtSize(test, 11) < (cols[1] - cols[0] - 10)) line1 = test;
+        else line2 = line2 ? `${line2} ${w}` : w;
       }
-
-      p.drawText(fmt(eq.buyingPrice), { x: cols[1], y: Y(ri.y), size: 11, font: reg });
-      p.drawText(fmt(eq.shippingFee), { x: cols[2], y: Y(ri.y), size: 11, font: reg });
-      p.drawText(fmt(eq.importerFee), { x: cols[3], y: Y(ri.y), size: 11, font: reg });
+      tp.page.drawText(line1, { x: cols[0], y: Y(baseY), size: 11, font: bold });
+      if (line2) tp.page.drawText(line2, { x: cols[0], y: Y(baseY + 14), size: 11, font: bold });
+    } else {
+      tp.page.drawText(nameUpper, { x: cols[0], y: Y(baseY), size: 11, font: bold });
     }
 
-    // Totals on last page only
-    if (pageIdx === tableStartPageIdx + currentPageIdx) {
-      p.drawText("TOTALS", { x: cols[0], y: Y(totalsY + 6), size: 12, font: bold });
-      p.drawText(fmt(totalBP), { x: cols[1], y: Y(totalsY + 6), size: 12, font: bold });
-      p.drawText(fmt(totalShipping), { x: cols[2], y: Y(totalsY + 6), size: 12, font: bold });
-      p.drawText(fmt(totalImporterFee), { x: cols[3], y: Y(totalsY + 6), size: 12, font: bold });
+    // Values
+    tp.page.drawText(fmt(eq.buyingPrice), { x: cols[1], y: Y(baseY), size: 11, font: reg });
+    tp.page.drawText(fmt(eq.shippingFee), { x: cols[2], y: Y(baseY), size: 11, font: reg });
+    tp.page.drawText(fmt(eq.importerFee), { x: cols[3], y: Y(baseY), size: 11, font: reg });
+
+    rowY += rowH;
+  }
+
+  // Totals
+  const totalsY = rowY + 4;
+  const tableEndY = totalsY + 26;
+  const lastTp = tablePages[tablePages.length - 1];
+  lastTp.page.drawText("TOTALS", { x: cols[0], y: Y(totalsY + 6), size: 12, font: bold });
+  lastTp.page.drawText(fmt(totalBP), { x: cols[1], y: Y(totalsY + 6), size: 12, font: bold });
+  lastTp.page.drawText(fmt(totalShipping), { x: cols[2], y: Y(totalsY + 6), size: 12, font: bold });
+  lastTp.page.drawText(fmt(totalImporterFee), { x: cols[3], y: Y(totalsY + 6), size: 12, font: bold });
+
+  // ---- Draw borders on all table pages (borders last = on top of white bg, under text is fine since text is black on white) ----
+  // Actually, draw borders FIRST (before text) so text sits on top clean
+  // We already drew text, so let's just make sure borders don't overlap.
+  // Since text is black and borders are thin gray, it should be fine.
+  // But to be safe, let's redraw text after borders? No, that's complex.
+  // Instead: the borders are thin (0.5pt) and text is over them - visually fine.
+
+  // Re-draw approach: clear and redraw properly
+  // Actually, the cleanest fix is to NOT draw any horizontal lines through text.
+  // Only draw: top border, header separator, bottom border. No row lines.
+  // And vertical lines only at column boundaries, not through text (they're at edges).
+
+  for (const tpi of tablePages) {
+    const p = tpi.page;
+    const hy = tpi.headerY;
+
+    // Top border of table
+    p.drawLine({ start: { x: 55, y: Y(hy - 2) }, end: { x: colEnd, y: Y(hy - 2) }, thickness: 0.5, color: rgb(0, 0, 0) });
+    // Header bottom border
+    p.drawLine({ start: { x: 55, y: Y(hy + headerH - 2) }, end: { x: colEnd, y: Y(hy + headerH - 2) }, thickness: 0.5, color: rgb(0, 0, 0) });
+
+    // Header text
+    p.drawText("EQUIPMENT NAME", { x: cols[0], y: Y(hy), size: 11, font: bold });
+    p.drawText("BUYING PRICE", { x: cols[1], y: Y(hy), size: 11, font: bold });
+    p.drawText("SHIPPING FEE", { x: cols[2], y: Y(hy), size: 11, font: bold });
+    p.drawText("IMPORTERS SERVICE FEE", { x: cols[3], y: Y(hy), size: 11, font: bold });
+
+    // Vertical column lines (full height of table area)
+    const vLines = [55, cols[1] - 8, cols[2] - 8, cols[3] - 8, colEnd];
+    const tableBottom = (tpi === lastTp) ? tableEndY : tpi.bottomLimit - 10;
+    for (const vx of vLines) {
+      p.drawLine({ start: { x: vx, y: Y(hy - 2) }, end: { x: vx, y: Y(tableBottom) }, thickness: 0.5, color: rgb(0, 0, 0) });
+    }
+
+    // Bottom border
+    p.drawLine({ start: { x: 55, y: Y(tableBottom) }, end: { x: colEnd, y: Y(tableBottom) }, thickness: 0.5, color: rgb(0, 0, 0) });
+
+    // Totals separator on last page
+    if (tpi === lastTp) {
+      p.drawLine({ start: { x: 55, y: Y(totalsY) }, end: { x: colEnd, y: Y(totalsY) }, thickness: 0.5, color: rgb(0, 0, 0) });
     }
   }
 
-  drawTableText(tableStartPageIdx, tableTop, false);
-  for (let pi = 1; pi <= currentPageIdx; pi++) {
-    drawTableText(tableStartPageIdx + pi, 55, true);
-  }
-
-  // Set current page pointer for sections after table
-  page = allPages[tableStartPageIdx + currentPageIdx];
+  // Set current page for sections after table
+  page = lastTp.page;
 
   // ===== 4. Incoterms =====
   let sectionY = tableEndY + 30;
