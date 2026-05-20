@@ -36,8 +36,11 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   // ===== PAGE 1 =====
   let page = doc.addPage([PW, PH]);
 
-  // --- TITLE ---
-  page.drawText("MACHINES IMPORT CONTRACT.", { x: 139, y: Y(25), size: 16, font: bold });
+  // --- TITLE (underlined) ---
+  const titleText = "MACHINES IMPORT CONTRACT.";
+  const titleW = bold.widthOfTextAtSize(titleText, 16);
+  page.drawText(titleText, { x: 139, y: Y(25), size: 16, font: bold });
+  page.drawLine({ start: { x: 139, y: Y(25) - 3 }, end: { x: 139 + titleW, y: Y(25) - 3 }, thickness: 0.8, color: rgb(0, 0, 0) });
 
   // --- DATE LINE (sequentially positioned, no overlap) ---
   let dx = 22;
@@ -60,17 +63,33 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   drawPart(`${contractYear}`, bold);
   drawPart(', between:');
 
-  // --- IMPORTER ---
+  // --- IMPORTER (underlined values) ---
   page.drawText("1.", { x: 22, y: Y(67), size: 11, font: bold });
   page.drawText("Importer:", { x: 33, y: Y(67), size: 11, font: bold });
+
+  // Name (underlined)
+  const impNameW = reg.widthOfTextAtSize(settings.importerName, 11);
   page.drawText("Name: ", { x: 21, y: Y(90), size: 11, font: reg });
   page.drawText(settings.importerName, { x: 55, y: Y(90), size: 11, font: reg });
+  page.drawLine({ start: { x: 55, y: Y(90) - 2 }, end: { x: 55 + impNameW, y: Y(90) - 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
+
+  // ID (underlined)
+  const impIdW = reg.widthOfTextAtSize(settings.importerId, 11);
   page.drawText("ID number: ", { x: 22, y: Y(112), size: 11, font: reg });
   page.drawText(settings.importerId, { x: 82, y: Y(112), size: 11, font: reg });
+  page.drawLine({ start: { x: 82, y: Y(112) - 2 }, end: { x: 82 + impIdW, y: Y(112) - 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
+
+  // Mobile (underlined)
+  const impMobileW = reg.widthOfTextAtSize(settings.importerMobile, 11);
   page.drawText("Mobile No: ", { x: 22, y: Y(135), size: 11, font: reg });
   page.drawText(settings.importerMobile, { x: 82, y: Y(135), size: 11, font: reg });
+  page.drawLine({ start: { x: 82, y: Y(135) - 2 }, end: { x: 82 + impMobileW, y: Y(135) - 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
+
+  // Business (underlined)
+  const impBizW = reg.widthOfTextAtSize(settings.importerBusinessName, 11);
   page.drawText("Business Name: ", { x: 22, y: Y(157), size: 11, font: reg });
   page.drawText(settings.importerBusinessName, { x: 108, y: Y(157), size: 11, font: reg });
+  page.drawLine({ start: { x: 108, y: Y(157) - 2 }, end: { x: 108 + impBizW, y: Y(157) - 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
 
   // --- BUYER (UNDERLINED) ---
   page.drawText("2.", { x: 22, y: Y(180), size: 11, font: bold });
@@ -97,15 +116,23 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   page.drawText(contract.buyerBusinessName, { x: 108, y: Y(270), size: 11, font: reg });
   page.drawLine({ start: { x: 108, y: Y(270) - 2 }, end: { x: 108 + buyerBizW, y: Y(270) - 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
 
-  // Together line
-  page.drawText('Together referred to as ', { x: 22, y: Y(293), size: 11, font: reg });
-  page.drawText('"the Parties."', { x: 127, y: Y(293), size: 11, font: bold });
+  // Together line (sequential positioning, no overlap)
+  let tx = 22;
+  const tPart1 = 'Together referred to as ';
+  const tPart2 = '"the Parties."';
+  page.drawText(tPart1, { x: tx, y: Y(293), size: 11, font: reg });
+  tx += reg.widthOfTextAtSize(tPart1, 11) + 1;
+  page.drawText(tPart2, { x: tx, y: Y(293), size: 11, font: bold });
 
-  // --- 1. Purpose ---
+  // --- 1. Purpose (word-wrapped to fit margins) ---
   page.drawText("1. ", { x: 22, y: Y(340), size: 12, font: bold });
   page.drawText("Purpose of the Agreement", { x: 36, y: Y(340), size: 12, font: bold });
-  page.drawText("The purpose of this Agreement is to outline the terms under which the Importer agrees to import, ship, customs clear and", { x: 22, y: Y(361), size: 11, font: reg });
-  page.drawText("supply the following machine(s) to the buyer/customer.   ", { x: 23, y: Y(379), size: 11, font: reg });
+  // Line 1: fits within ~520pt (page width - margins)
+  page.drawText("The purpose of this Agreement is to outline the terms under which the Importer", { x: 22, y: Y(361), size: 11, font: reg });
+  // Line 2: continuation
+  page.drawText("agrees to import, ship, customs clear and supply the following machine(s) to the", { x: 22, y: Y(378), size: 11, font: reg });
+  // Line 3: continuation
+  page.drawText("buyer/customer.", { x: 22, y: Y(395), size: 11, font: reg });
 
   // --- 2. Description of Machines ---
   page.drawText("2. ", { x: 22, y: Y(401), size: 12, font: bold });
