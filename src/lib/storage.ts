@@ -16,6 +16,7 @@ export interface Equipment {
 export interface Contract {
   id: string;
   contractNumber: string;
+  contractDate: string; // YYYY-MM-DD
   buyerName: string;
   buyerId: string;
   buyerMobile: string;

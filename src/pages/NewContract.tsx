@@ -26,6 +26,8 @@ export default function NewContract() {
   const navigate = useNavigate();
   const settings = getSettings();
 
+  const today = new Date().toISOString().split("T")[0];
+  const [contractDate, setContractDate] = useState(today);
   const [buyerName, setBuyerName] = useState("");
   const [buyerId, setBuyerId] = useState("");
   const [buyerMobile, setBuyerMobile] = useState("");
@@ -65,7 +67,7 @@ export default function NewContract() {
     try {
       const validEqs = equipments.filter((e) => e.name.trim());
       const contract = createContract({
-        buyerName, buyerId, buyerMobile, buyerBusinessName,
+        contractDate, buyerName, buyerId, buyerMobile, buyerBusinessName,
         paymentMethod, equipments: validEqs,
       });
 
@@ -83,7 +85,7 @@ export default function NewContract() {
 
   const handleSaveDraft = () => {
     if (!validate()) return;
-    createContract({ buyerName, buyerId, buyerMobile, buyerBusinessName, paymentMethod, equipments });
+    createContract({ contractDate, buyerName, buyerId, buyerMobile, buyerBusinessName, paymentMethod, equipments });
     toast.success("Draft saved!");
     navigate("/");
   };
@@ -125,6 +127,10 @@ export default function NewContract() {
         <Card>
           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-amber-600" /> Buyer / Customer Details</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <Label>Contract Date <span className="text-red-500">*</span></Label>
+              <Input type="date" value={contractDate} onChange={(e) => setContractDate(e.target.value)} className="mt-1 w-48" />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><Label>Full Name <span className="text-red-500">*</span></Label><Input value={buyerName} onChange={(e) => setBuyerName(e.target.value)} placeholder="e.g. Kavisu Arnold Mutuku" className="mt-1" /></div>
               <div><Label>ID Number <span className="text-red-500">*</span></Label><Input value={buyerId} onChange={(e) => setBuyerId(e.target.value)} placeholder="e.g. 36051620" className="mt-1" /></div>

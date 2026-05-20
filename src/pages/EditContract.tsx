@@ -23,6 +23,8 @@ export default function EditContract() {
   const existing = getContract(id || "");
   const settings = getSettings();
 
+  const today = new Date().toISOString().split("T")[0];
+  const [contractDate, setContractDate] = useState(today);
   const [buyerName, setBuyerName] = useState("");
   const [buyerId, setBuyerId] = useState("");
   const [buyerMobile, setBuyerMobile] = useState("");
@@ -34,6 +36,7 @@ export default function EditContract() {
 
   useEffect(() => {
     if (existing) {
+      setContractDate(existing.contractDate || today);
       setBuyerName(existing.buyerName);
       setBuyerId(existing.buyerId);
       setBuyerMobile(existing.buyerMobile);
@@ -62,7 +65,7 @@ export default function EditContract() {
 
     setSaving(true);
     updateContract(existing.id, {
-      buyerName, buyerId, buyerMobile, buyerBusinessName,
+      contractDate, buyerName, buyerId, buyerMobile, buyerBusinessName,
       paymentMethod, equipments: valid,
     });
 
@@ -108,6 +111,10 @@ export default function EditContract() {
         <Card>
           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-amber-600" /> Buyer Details</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <Label>Contract Date *</Label>
+              <Input type="date" value={contractDate} onChange={(e) => setContractDate(e.target.value)} className="mt-1 w-48" />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><Label>Full Name *</Label><Input value={buyerName} onChange={(e) => setBuyerName(e.target.value)} className="mt-1" /></div>
               <div><Label>ID Number *</Label><Input value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className="mt-1" /></div>

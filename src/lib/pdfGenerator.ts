@@ -23,8 +23,13 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   const countWord = numberToWord(contract.equipments.length);
   const eqCount = contract.equipments.length;
 
-  const now = new Date();
-  const day = now.getDate();
+  // Parse contract date (YYYY-MM-DD)
+  const dateParts = contract.contractDate ? contract.contractDate.split("-") : [];
+  const contractYear = dateParts[0] ? parseInt(dateParts[0]) : new Date().getFullYear();
+  const contractMonth = dateParts[1] ? parseInt(dateParts[1]) - 1 : new Date().getMonth();
+  const contractDay = dateParts[2] ? parseInt(dateParts[2]) : new Date().getDate();
+
+  const day = contractDay;
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const suffix = day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th";
 
@@ -34,16 +39,26 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   // --- TITLE ---
   page.drawText("MACHINES IMPORT CONTRACT.", { x: 139, y: Y(25), size: 16, font: bold });
 
-  // --- DATE LINE ---
-  page.drawText('This ', { x: 22, y: Y(45), size: 11, font: reg });
-  page.drawText('Machine Importation Contract', { x: 43, y: Y(45), size: 11, font: bold });
-  page.drawText(' ("Agreement") is made on the ', { x: 181, y: Y(45), size: 11, font: reg });
-  page.drawText(`${day}`, { x: 320, y: Y(45), size: 11, font: bold });
-  page.drawText(suffix, { x: 332, y: Y(44), size: 6.5, font: bold });
-  page.drawText('day of ', { x: 340, y: Y(45), size: 11, font: reg });
-  page.drawText(`${months[now.getMonth()]} `, { x: 370, y: Y(45), size: 11, font: bold });
-  page.drawText(`${now.getFullYear()}`, { x: 407, y: Y(45), size: 11, font: bold });
-  page.drawText(', between:   ', { x: 435, y: Y(45), size: 11, font: reg });
+  // --- DATE LINE (sequentially positioned, no overlap) ---
+  let dx = 22;
+  const dy = Y(45);
+
+  const drawPart = (text: string, font = reg) => {
+    page.drawText(text, { x: dx, y: dy, size: 11, font });
+    dx += font.widthOfTextAtSize(text, 11) + 1.5;
+  };
+
+  drawPart('This ');
+  drawPart('Machine Importation Contract', bold);
+  drawPart(' ("Agreement") is made on the ');
+  drawPart(`${day}`, bold);
+  // Superscript suffix
+  page.drawText(suffix, { x: dx - 1, y: dy + 3, size: 7, font: bold });
+  dx += 6;
+  drawPart('day of ');
+  drawPart(`${months[contractMonth]} `, bold);
+  drawPart(`${contractYear}`, bold);
+  drawPart(', between:');
 
   // --- IMPORTER ---
   page.drawText("1.", { x: 22, y: Y(67), size: 11, font: bold });
