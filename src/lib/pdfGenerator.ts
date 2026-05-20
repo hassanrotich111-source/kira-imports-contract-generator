@@ -5,6 +5,7 @@ import { calcTotals, numberToWord } from "./storage";
 
 const fmt = (n: number): string =>
   n === 0 ? "" : n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+const kes = (n: number): string => `KES${fmt(n)}`;
 
 export async function generateContractPdf(
   contract: Contract,
@@ -234,7 +235,7 @@ export async function generateContractPdf(
   doc.text(totalPrefix, 57, 66);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text(`KES ${fmt(totalBP)}`, 57 + doc.getTextWidth(totalPrefix), 66);
+  doc.text(kes(totalBP), 57 + doc.getTextWidth(totalPrefix), 66);
 
   // Bullet 2
   doc.setFontSize(11);
@@ -253,7 +254,7 @@ export async function generateContractPdf(
     85,
     132
   );
-  const upfrontLine = `contract signing standing at KES ${fmt(upfrontPayment)}.`;
+  const upfrontLine = `contract signing standing at ${kes(upfrontPayment)}.`;
   doc.text(upfrontLine, 85, 148);
 
   // o balance
@@ -265,9 +266,9 @@ export async function generateContractPdf(
   );
   doc.text("standing at", 85, 188);
   doc.setFont("helvetica", "bold");
-  doc.text(`KES ${fmt(totalShipping)}`, 160, 188);
+  doc.text(kes(totalShipping), 160, 188);
   doc.setFont("helvetica", "normal");
-  doc.text(".", 160 + doc.getTextWidth(`KES ${fmt(totalShipping)}`), 188);
+  doc.text(".", 160 + doc.getTextWidth(kes(totalShipping)), 188);
 
   // Bullet 4
   doc.text("\u2022", 39, 210);
@@ -276,16 +277,16 @@ export async function generateContractPdf(
   // ===== AUTOTABLE =====
   const tableBody = contract.equipments.map((eq) => [
     eq.name.toUpperCase(),
-    fmt(eq.buyingPrice),
-    fmt(eq.shippingFee),
-    fmt(eq.importerFee),
+    kes(eq.buyingPrice),
+    kes(eq.shippingFee),
+    kes(eq.importerFee),
   ]);
 
   autoTable(doc, {
     startY: 225,
     head: [["EQUIPMENT NAME", "BUYING PRICE", "SHIPPING FEE", "IMPORTERS SERVICE FEE"]],
     body: tableBody,
-    foot: [["TOTALS", fmt(totalBP), fmt(totalShipping), fmt(totalImporterFee)]],
+    foot: [["TOTALS", kes(totalBP), kes(totalShipping), kes(totalImporterFee)]],
     theme: "grid",
     styles: {
       fontSize: 11,
