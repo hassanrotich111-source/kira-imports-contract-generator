@@ -171,9 +171,9 @@ export async function generateContractPdf(contract: Contract, settings: Settings
         else if (eq.imageData.startsWith("data:image")) img = await doc.embedJpg(eq.imageData);
         if (img) {
           const dims = img.scale(1);
-          const scale = Math.min(316 / dims.width, 210 / dims.height, 1);
-          page.drawImage(img, { x: 44, y: Y(machineY + 180), width: dims.width * scale, height: dims.height * scale });
-          machineY += 160;
+          const scale = Math.min(380 / dims.width, 140 / dims.height, 1);
+          page.drawImage(img, { x: 44, y: Y(machineY + 150), width: dims.width * scale, height: dims.height * scale });
+          machineY += 150;
         }
       } catch (e) { /* ignore */ }
     }
