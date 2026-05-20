@@ -2,422 +2,265 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import type { Contract, Settings } from "./storage";
 import { calcTotals, numberToWord } from "./storage";
 
-const PW = 595;  // A4 width
-const PH = 842;  // A4 height
-const ML = 45;   // margin left
-const MR = 45;   // margin right
-const MT = 55;   // margin top
-const MB = 50;   // margin bottom
-const CW = PW - ML - MR; // content width
+const TEMPLATE_URL = "./template/contract-template.pdf";
 
 function fmt(n: number): string {
-  return n === 0 ? "-" : n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
-}
-
-interface PageCtx {
-  page: ReturnType<PDFDocument["addPage"]>;
-  y: number;
+  return n === 0 ? "" : n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
 }
 
 export async function generateContractPdf(contract: Contract, settings: Settings): Promise<Uint8Array> {
-  const doc = await PDFDocument.create();
-  const reg = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  // 1. Load the original template
+  const resp = await fetch(TEMPLATE_URL);
+  if (!resp.ok) throw new Error("Contract template not found. Please upload a template in Settings.");
+  const templateBytes = await resp.arrayBuffer();
+  const doc = await PDFDocument.load(templateBytes);
+  const pages = doc.getPages();
+  const helv = await doc.embedFont(StandardFonts.Helvetica);
+  const helvBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const PH = 841.92;
 
   const { totalBP, totalShipping, totalImporterFee, upfrontPayment } = calcTotals(contract.equipments);
   const countWord = numberToWord(contract.equipments.length);
+  const eqCount = contract.equipments.length;
 
-  // ---- helpers ----
-  function newPage(): PageCtx {
-    return { page: doc.addPage([PW, PH]), y: PH - MT };
-  }
+  // ========== PAGE 1 ==========
+  const p1 = pages[0];
 
-  let ctx = newPage();
+  // --- Title area: "MACHINES IMPORT CONTRACT" ---
+  // White out
+  p1.drawRectangle({ x: 138, y: 799, width: 320, height: 20, color: rgb(1,1,1) });
+  p1.drawText("MACHINES IMPORT CONTRACT", { x: 138, y: 799, size: 16, font: helvBold });
 
-  function ensureSpace(needed: number) {
-    if (ctx.y - needed < MB) ctx = newPage();
-  }
-
-  function drawText(text: string, x: number, size: number, font = reg) {
-    ctx.page.drawText(text, { x, y: ctx.y, size, font });
-  }
-
-  function drawBold(text: string, x: number, size: number) {
-    drawText(text, x, size, bold);
-  }
-
-  function lineHeight(size: number) {
-    return size * 1.4;
-  }
-
-  function advance(size: number) {
-    ctx.y -= lineHeight(size);
-  }
-
-  function advanceBy(n: number) {
-    ctx.y -= n;
-  }
-
-  // ============ TITLE & DATE ============
-  ensureSpace(80);
-
+  // --- Date: "20th day of May 2026" ---
+  p1.drawRectangle({ x: 308, y: 779, width: 200, height: 16, color: rgb(1,1,1) });
   const now = new Date();
   const day = now.getDate();
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const suffix = day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th";
-  const dateStr = `${day}${suffix} day of ${months[now.getMonth()]}  ${now.getFullYear()}`;
+  p1.drawText(`${day}${suffix} day of ${months[now.getMonth()]}  ${now.getFullYear()}`, { x: 308, y: 779, size: 11, font: helv });
 
-  // Title line
-  const title = 'This Machine Importation Contract ("Agreement") is made on the';
-  drawText(title, ML, 11);
-  advance(11);
-  // Date on same visual line area
-  ctx.y += 3;
-  drawText(dateStr, ML + bold.widthOfTextAtSize(title, 11) + 3, 11, bold);
-  ctx.y -= 3;
-  drawText(", between:", ML + bold.widthOfTextAtSize(title + " " + dateStr, 11) + 6, 11);
+  // --- Importer Details (white out + rewrite) ---
+  // Name
+  p1.drawRectangle({ x: 55, y: 739, width: 250, height: 14, color: rgb(1,1,1) });
+  p1.drawText(settings.importerName, { x: 92, y: 739, size: 11, font: helv });
+  // ID
+  p1.drawRectangle({ x: 78, y: 717, width: 200, height: 14, color: rgb(1,1,1) });
+  p1.drawText(settings.importerId, { x: 137, y: 717, size: 11, font: helv });
+  // Mobile
+  p1.drawRectangle({ x: 77, y: 694, width: 200, height: 14, color: rgb(1,1,1) });
+  p1.drawText(settings.importerMobile, { x: 136, y: 694, size: 11, font: helv });
+  // Business
+  p1.drawRectangle({ x: 86, y: 672, width: 250, height: 14, color: rgb(1,1,1) });
+  p1.drawText(settings.importerBusinessName, { x: 175, y: 672, size: 11, font: helv });
 
-  advance(11);
+  // --- Buyer Details (white out + rewrite) ---
+  // Name
+  p1.drawRectangle({ x: 88, y: 627, width: 300, height: 14, color: rgb(1,1,1) });
+  p1.drawText(contract.buyerName, { x: 125, y: 627, size: 11, font: helv });
+  // ID
+  p1.drawRectangle({ x: 73, y: 605, width: 200, height: 14, color: rgb(1,1,1) });
+  p1.drawText(contract.buyerId, { x: 132, y: 605, size: 11, font: helv });
+  // Mobile
+  p1.drawRectangle({ x: 78, y: 582, width: 200, height: 14, color: rgb(1,1,1) });
+  p1.drawText(contract.buyerMobile, { x: 137, y: 582, size: 11, font: helv });
+  // Business
+  p1.drawRectangle({ x: 107, y: 560, width: 300, height: 14, color: rgb(1,1,1) });
+  p1.drawText(contract.buyerBusinessName, { x: 196, y: 560, size: 11, font: helv });
 
-  // Main heading
-  const heading = "MACHINES IMPORTATION CONTRACT.";
-  const headingW = bold.widthOfTextAtSize(heading, 16);
-  drawBold(heading, (PW - headingW) / 2, 16);
-  advance(16);
-  advanceBy(8);
+  // ========== MACHINE DESCRIPTIONS (Page 1) ==========
+  // Machine a) - clear and rewrite
+  const eq0 = contract.equipments[0];
+  if (eq0) {
+    // Clear machine name
+    p1.drawRectangle({ x: 22, y: PH - 433, width: 250, height: 16, color: rgb(1,1,1) });
+    p1.drawText(`a)  ${eq0.name.toUpperCase()}`, { x: 22, y: PH - 433, size: 11, font: helvBold });
 
-  // ============ 1. IMPORTER ============
-  ensureSpace(130);
-  drawBold("1.", ML, 12);
-  drawBold("Importer:", ML + 20, 12);
-  advance(12);
+    // Clear bullet area
+    const descLines0 = eq0.description ? eq0.description.split("\n").filter(l => l.trim()) : [`Quantity: ${eq0.quantity}`];
+    p1.drawRectangle({ x: 38, y: PH - 445 - descLines0.length * 22, width: 400, height: descLines0.length * 22 + 15, color: rgb(1,1,1) });
 
-  const impFields = [
-    { label: "Name: ", val: settings.importerName },
-    { label: "ID number: ", val: settings.importerId },
-    { label: "Mobile No: ", val: settings.importerMobile },
-    { label: "Business Name: ", val: settings.importerBusinessName },
-  ];
-  for (const f of impFields) {
-    advanceBy(20);
-    drawText(f.label, ML + 10, 11);
-    drawText(f.val, ML + 10 + reg.widthOfTextAtSize(f.label, 11), 11, bold);
-  }
-  advanceBy(10);
-
-  // ============ 2. BUYER ============
-  ensureSpace(130);
-  drawBold("2.", ML, 12);
-  drawBold("Buyer/Customer:", ML + 20, 12);
-  advance(12);
-
-  const buyFields = [
-    { label: "Name: ", val: contract.buyerName },
-    { label: "ID number: ", val: contract.buyerId },
-    { label: "Mobile No: ", val: contract.buyerMobile },
-    { label: "Business Name: ", val: contract.buyerBusinessName },
-  ];
-  for (const f of buyFields) {
-    advanceBy(20);
-    drawText(f.label, ML + 10, 11);
-    drawText(f.val, ML + 10 + reg.widthOfTextAtSize(f.label, 11), 11, bold);
-  }
-  advanceBy(15);
-
-  // Together line
-  ensureSpace(30);
-  drawText('Together referred to as "the Parties."', ML, 11);
-  advanceBy(25);
-
-  // ============ 1. PURPOSE ============
-  ensureSpace(100);
-  drawBold("1.", ML, 12);
-  drawBold("Purpose of the Agreement", ML + 20, 12);
-  advance(12);
-  advanceBy(5);
-
-  drawText("The purpose of this Agreement is to outline the terms under which the Importer agrees to import,", ML, 11);
-  advance(11);
-  drawText("ship, customs clear and supply the following machine(s) to the buyer/customer.", ML, 11);
-  advanceBy(25);
-
-  // ============ 2. DESCRIPTION OF MACHINES ============
-  ensureSpace(60);
-  drawBold("2.", ML, 12);
-  drawBold("Description of the Machines", ML + 20, 12);
-  advanceBy(20);
-
-  for (let i = 0; i < contract.equipments.length; i++) {
-    const eq = contract.equipments[i];
-    const letter = String.fromCharCode(97 + i);
-    const bullets = eq.description
-      ? eq.description.split("\n").filter((l) => l.trim())
-      : [`Quantity: ${eq.quantity}`];
-
-    const needed = 30 + bullets.length * 22 + (eq.imageData ? 180 : 10);
-    ensureSpace(needed);
-
-    // Machine label
-    advanceBy(5);
-    drawBold(`${letter})`, ML, 11);
-    drawBold(eq.name.toUpperCase(), ML + 25, 11);
-    advanceBy(20);
-
-    // Bullets
-    for (const b of bullets) {
-      drawText("\u2022", ML + 15, 10);
-      drawText(b.trim(), ML + 35, 11);
-      advanceBy(20);
+    let by = PH - 455;
+    for (const line of descLines0) {
+      p1.drawText("\u2022", { x: 40, y: by, size: 10, font: helv });
+      p1.drawText(line.trim(), { x: 58, y: by, size: 11, font: helv });
+      by -= 22;
     }
 
-    // Image
-    if (eq.imageData) {
+    // Embed image if available
+    if (eq0.imageData) {
       try {
         let img;
-        if (eq.imageData.startsWith("data:image/png")) img = await doc.embedPng(eq.imageData);
-        else if (eq.imageData.startsWith("data:image")) img = await doc.embedJpg(eq.imageData);
-
+        if (eq0.imageData.startsWith("data:image/png")) img = await doc.embedPng(eq0.imageData);
+        else if (eq0.imageData.startsWith("data:image")) img = await doc.embedJpg(eq0.imageData);
         if (img) {
-          ensureSpace(170);
-          const maxW = CW - 60;
-          const maxH = 150;
           const dims = img.scale(1);
-          const scale = Math.min(maxW / dims.width, maxH / dims.height, 1);
-          const sw = dims.width * scale;
-          const sh = dims.height * scale;
-          ctx.page.drawImage(img, {
-            x: ML + 20 + (maxW - sw) / 2,
-            y: ctx.y - sh,
-            width: sw,
-            height: sh,
-          });
-          advanceBy(sh + 15);
+          const scale = Math.min(260 / dims.width, 170 / dims.height, 1);
+          p1.drawImage(img, { x: 44, y: 641, width: dims.width * scale, height: dims.height * scale });
         }
-      } catch (e) { console.error("img:", e); }
+      } catch (e) { /* ignore image errors */ }
     }
-
-    advanceBy(10);
   }
 
-  // ============ 3. PURCHASE PRICE & PAYMENT ============
-  ensureSpace(350);
-  drawBold("3.", ML, 12);
-  drawBold("Purchase Price and Payment Terms", ML + 20, 12);
-  advanceBy(20);
+  // ========== PAGE 2 ==========
+  if (pages.length > 1) {
+    const p2 = pages[1];
 
-  // Bullet dots
-  drawText("\u2022", ML, 11); advanceBy(3);
-  drawText("\u2022", ML, 11); advanceBy(3);
-  drawText("\u2022", ML, 11);
-  advanceBy(18);
+    // Machine b)
+    const eq1 = contract.equipments[1];
+    if (eq1) {
+      p2.drawRectangle({ x: 51, y: PH - 57, width: 250, height: 16, color: rgb(1,1,1) });
+      p2.drawText(`b)  ${eq1.name.toUpperCase()}`, { x: 51, y: PH - 57, size: 11, font: helvBold });
 
-  // Total price line
-  const totalPrefix = `Total Price/cost for the ${countWord} equipment: `;
-  drawText(totalPrefix, ML + 15, 11);
-  drawText(`KES ${fmt(totalBP)}`, ML + 15 + reg.widthOfTextAtSize(totalPrefix, 11), 12, bold);
-  advanceBy(22);
+      const descLines1 = eq1.description ? eq1.description.split("\n").filter(l => l.trim()) : [`Quantity: ${eq1.quantity}`];
+      p2.drawRectangle({ x: 58, y: PH - 75 - descLines1.length * 22, width: 400, height: descLines1.length * 22 + 20, color: rgb(1,1,1) });
 
-  // Payment Method
-  drawText(`Payment Method: ${contract.paymentMethod}`, ML + 15, 11);
-  advanceBy(22);
+      let by = PH - 82;
+      for (const line of descLines1) {
+        p2.drawText("\u2022", { x: 60, y: by, size: 10, font: helv });
+        p2.drawText(line.trim(), { x: 78, y: by, size: 11, font: helv });
+        by -= 22;
+      }
 
-  // Payment Schedule
-  drawText("Payment Schedule:", ML + 15, 11, bold);
-  advanceBy(20);
-
-  // Upfront payment
-  const upIndent = ML + 35;
-  const upfrontLine1 = "o Upfront payment for the machines buying price cost + importers service fee on";
-  drawText(upfrontLine1, upIndent, 11);
-  advance(11);
-  const upfrontLine2 = "contract signing standing at";
-  drawText(upfrontLine2, upIndent + 15, 11);
-  advance(11);
-  drawBold(`KES ${fmt(upfrontPayment)} .`, upIndent + 15, 11);
-  advanceBy(18);
-
-  // Balance
-  const balLine1 = "o Balance of shipping fee upon equipment arrival, at the point of collection";
-  drawText(balLine1, upIndent, 11);
-  advance(11);
-  const balLine2 = "standing at";
-  drawText(balLine2, upIndent + 15, 11);
-  advance(11);
-  drawBold(`KES ${fmt(totalShipping)} .`, upIndent + 15, 11);
-  advanceBy(22);
-
-  // Table intro
-  drawText("\u2022", ML, 11);
-  drawText("Cost as outlined in the below table:", ML + 15, 11);
-  advanceBy(25);
-
-  // ============ COST TABLE ============
-  // Column positions (adjustable)
-  const colX = [ML + 5, ML + 170, ML + 290, ML + 420];
-  const tableHeaders = ["EQUIPMENT NAME", "BUYING PRICE", "SHIPPING FEE", "IMPORTERS SERVICE FEE"];
-
-  tableHeaders.forEach((h, i) => {
-    drawBold(h, colX[i], 11);
-  });
-  advanceBy(5);
-
-  // Header underline
-  ctx.page.drawLine({ start: { x: ML, y: ctx.y }, end: { x: PW - MR, y: ctx.y }, thickness: 0.8, color: rgb(0, 0, 0) });
-  advanceBy(20);
-
-  // Rows
-  for (const eq of contract.equipments) {
-    ensureSpace(50);
-
-    const words = eq.name.toUpperCase().split(" ");
-    let l1 = words.slice(0, Math.min(3, words.length)).join(" ");
-    let l2 = words.slice(3).join(" ");
-    if (words.length <= 3) { l1 = words.join(" "); l2 = ""; }
-
-    drawText(l1, colX[0], 11);
-    if (l2) {
-      advanceBy(14);
-      drawText(l2, colX[0], 11);
-      advanceBy(-14);
+      if (eq1.imageData) {
+        try {
+          let img;
+          if (eq1.imageData.startsWith("data:image/png")) img = await doc.embedPng(eq1.imageData);
+          else if (eq1.imageData.startsWith("data:image")) img = await doc.embedJpg(eq1.imageData);
+          if (img) {
+            const dims = img.scale(1);
+            const scale = Math.min(258 / dims.width, 198 / dims.height, 1);
+            p2.drawImage(img, { x: 43, y: 317, width: dims.width * scale, height: dims.height * scale });
+          }
+        } catch (e) { /* ignore */ }
+      }
     }
 
-    drawText(fmt(eq.buyingPrice), colX[1], 11);
-    drawText(fmt(eq.shippingFee), colX[2], 11);
-    drawText(fmt(eq.importerFee), colX[3], 11);
-    advanceBy(30);
+    // Machine c)
+    const eq2 = contract.equipments[2];
+    if (eq2) {
+      p2.drawRectangle({ x: 45, y: PH - 573, width: 250, height: 16, color: rgb(1,1,1) });
+      p2.drawText(`c)  ${eq2.name.toUpperCase()}`, { x: 45, y: PH - 573, size: 11, font: helvBold });
+
+      const descLines2 = eq2.description ? eq2.description.split("\n").filter(l => l.trim()) : [`Quantity: ${eq2.quantity}`];
+      p2.drawRectangle({ x: 38, y: PH - 588 - descLines2.length * 22, width: 400, height: descLines2.length * 22 + 15, color: rgb(1,1,1) });
+
+      let by = PH - 593;
+      for (const line of descLines2) {
+        p2.drawText("\u2022", { x: 40, y: by, size: 10, font: helv });
+        p2.drawText(line.trim(), { x: 58, y: by, size: 11, font: helv });
+        by -= 22;
+      }
+
+      if (eq2.imageData) {
+        try {
+          let img;
+          if (eq2.imageData.startsWith("data:image/png")) img = await doc.embedPng(eq2.imageData);
+          else if (eq2.imageData.startsWith("data:image")) img = await doc.embedJpg(eq2.imageData);
+          if (img) {
+            const dims = img.scale(1);
+            const scale = Math.min(280 / dims.width, 186 / dims.height, 1);
+            p2.drawImage(img, { x: 22, y: 614, width: dims.width * scale, height: dims.height * scale });
+          }
+        } catch (e) { /* ignore */ }
+      }
+    }
   }
 
-  // Totals
-  ctx.page.drawLine({ start: { x: ML, y: ctx.y + 10 }, end: { x: PW - MR, y: ctx.y + 10 }, thickness: 0.8, color: rgb(0, 0, 0) });
-  advanceBy(8);
-  drawBold("TOTALS", colX[0], 12);
-  drawBold(fmt(totalBP), colX[1], 12);
-  drawBold(fmt(totalShipping), colX[2], 12);
-  drawBold(fmt(totalImporterFee), colX[3], 12);
-  advanceBy(30);
+  // ========== PAGE 3 (Purchase Terms + Table) ==========
+  if (pages.length > 2) {
+    const p3 = pages[2];
 
-  // ============ 4. INCOTERMS ============
-  ensureSpace(100);
-  drawBold("4.", ML, 12);
-  drawBold("Incoterms / Delivery Terms", ML + 20, 12);
-  advanceBy(20);
-  drawText("\u2022", ML, 11); advanceBy(3);
-  drawText("\u2022", ML, 11); advanceBy(3);
-  drawText("\u2022", ML, 11); advanceBy(18);
-  drawText("Lead-times: 35-45 days", ML + 15, 11);
-  advanceBy(20);
-  drawText("Shipping Method: via sea except for the handheld printer that's by air.", ML + 15, 11);
-  advanceBy(20);
-  drawText("Collection terms: self-collection at the Mombasa Road warehouse.", ML + 15, 11);
-  advanceBy(30);
+    // Machine d)
+    const eq3 = contract.equipments[3];
+    if (eq3) {
+      p3.drawRectangle({ x: 37, y: PH - 57, width: 250, height: 16, color: rgb(1,1,1) });
+      p3.drawText(`d)  ${eq3.name.toUpperCase()}`, { x: 37, y: PH - 57, size: 11, font: helvBold });
 
-  // ============ 5. INSPECTION ============
-  ensureSpace(80);
-  drawBold("5.", ML, 12);
-  drawBold("Inspection and Testing", ML + 20, 12);
-  advanceBy(20);
-  drawText("\u2022", ML, 11); advanceBy(3);
-  drawText("\u2022", ML, 11); advanceBy(18);
-  drawText("Pre-shipment inspection and testing (Yes/No): Yes", ML + 15, 11);
-  advanceBy(20);
-  drawText("Inspection conducted by: Importer in liaison with the Chinese equipment", ML + 15, 11);
-  advance(11);
-  drawText("manufacturer/supplier", ML + 15, 11);
-  advanceBy(30);
+      const descLines3 = eq3.description ? eq3.description.split("\n").filter(l => l.trim()) : [`Quantity: ${eq3.quantity}`];
+      p3.drawRectangle({ x: 36, y: PH - 73 - descLines3.length * 22, width: 400, height: descLines3.length * 22 + 15, color: rgb(1,1,1) });
 
-  // ============ 6. RISK & INSURANCE ============
-  ensureSpace(60);
-  drawBold("6.", ML, 12);
-  drawBold("Risk and Insurance", ML + 20, 12);
-  advanceBy(20);
-  drawText("Insurance responsibility during shipping and risk of loss or damage passes to the", ML, 11);
-  advance(11);
-  drawText("Importer according to the chosen Incoterm until the equipment is collected by the buyer.", ML, 11);
-  advanceBy(30);
+      let by = PH - 78;
+      for (const line of descLines3) {
+        p3.drawText("\u2022", { x: 38, y: by, size: 10, font: helv });
+        p3.drawText(line.trim(), { x: 56, y: by, size: 11, font: helv });
+        by -= 22;
+      }
 
-  // ============ 7. DISPUTE RESOLUTION ============
-  ensureSpace(100);
-  drawBold("7.", ML, 12);
-  drawBold("Dispute Resolution", ML + 20, 12);
-  advanceBy(20);
-  drawText("Any disputes arising from this Agreement shall be resolved through:", ML, 11);
-  advanceBy(20);
-  drawText("\u2022  Negotiation", ML + 10, 11);
-  advanceBy(18);
-  drawText("\u2022  Mediation/Arbitration", ML + 10, 11);
-  advanceBy(18);
-  drawText("\u2022  Courts of Kenya", ML + 10, 11);
-  advanceBy(30);
+      if (eq3.imageData) {
+        try {
+          let img;
+          if (eq3.imageData.startsWith("data:image/png")) img = await doc.embedPng(eq3.imageData);
+          else if (eq3.imageData.startsWith("data:image")) img = await doc.embedJpg(eq3.imageData);
+          if (img) {
+            const dims = img.scale(1);
+            const scale = Math.min(256 / dims.width, 164 / dims.height, 1);
+            p3.drawImage(img, { x: 36, y: 92, width: dims.width * scale, height: dims.height * scale });
+          }
+        } catch (e) { /* ignore */ }
+      }
+    }
 
-  // ============ 8. TERMINATION ============
-  ensureSpace(150);
-  drawBold("8.", ML, 12);
-  drawBold("Termination", ML + 20, 12);
-  advanceBy(20);
-  drawText("Either party may terminate this Agreement if the other party:", ML, 11);
-  advanceBy(20);
-  drawText("\u2022", ML, 11); advanceBy(3);
-  drawText("\u2022", ML, 11); advanceBy(3);
-  drawText("\u2022", ML, 11); advanceBy(18);
-  drawText("breaches material terms,", ML + 15, 11);
-  advanceBy(18);
-  drawText("fails to deliver/pay within agreed timelines,", ML + 15, 11);
-  advanceBy(18);
-  drawText("becomes insolvent.", ML + 15, 11);
-  advanceBy(20);
-  drawText("Monies already paid to the importer shall be refunded in full upon:", ML, 11);
-  advanceBy(20);
-  drawText("Failure to deliver the equipment as ordered, and of the specifications as ordered, and as", ML, 11);
-  advance(11);
-  drawText("per the agreed lead times with any naturally unavoidable delays, shall be communicated to", ML, 11);
-  advance(11);
-  drawText("the buyer immediately for alignment.", ML, 11);
-  advanceBy(30);
+    // --- Total Price Line ---
+    p3.drawRectangle({ x: 57, y: PH - 311, width: 360, height: 16, color: rgb(1,1,1) });
+    const totalPrefix = `Total Price/cost for the ${countWord} (${eqCount}) equipment shall be  `;
+    p3.drawText("\u2022", { x: 57, y: PH - 311, size: 11, font: helv });
+    p3.drawText(totalPrefix, { x: 72, y: PH - 311, size: 11, font: helv });
+    p3.drawText(`KES ${fmt(totalBP)}`, { x: 72 + helv.widthOfTextAtSize(totalPrefix, 11), y: PH - 311, size: 12, font: helvBold });
 
-  // ============ 9. GOVERNING LAW ============
-  ensureSpace(50);
-  drawBold("9.", ML, 12);
-  drawBold("Governing Law", ML + 20, 12);
-  advanceBy(20);
-  drawText("This Agreement shall be governed by the laws of Kenya.", ML, 11);
-  advanceBy(40);
+    // Payment Method
+    p3.drawRectangle({ x: 57, y: PH - 334, width: 300, height: 16, color: rgb(1,1,1) });
+    p3.drawText("\u2022", { x: 57, y: PH - 334, size: 11, font: helv });
+    p3.drawText(`Payment Method: ${contract.paymentMethod}`, { x: 72, y: PH - 334, size: 11, font: helv });
 
-  // ============ 10. SIGNATURES ============
-  ensureSpace(300);
-  drawBold("10.", ML, 12);
-  drawBold("Signatures", ML + 25, 12);
-  advanceBy(40);
+    // Upfront payment
+    p3.drawRectangle({ x: 77, y: PH - 398, width: 200, height: 16, color: rgb(1,1,1) });
+    p3.drawText(`KES ${fmt(upfrontPayment)}`, { x: 85, y: PH - 398, size: 11, font: helvBold });
 
-  // Importer
-  drawBold("Importer", ML, 12);
-  advanceBy(25);
-  drawText("Name: ______________________________", ML, 11);
-  advanceBy(22);
-  drawText("Signature: __________________________", ML, 11);
-  advanceBy(22);
-  drawText("Date: ______________________________", ML, 11);
-  advanceBy(40);
+    // Balance
+    p3.drawRectangle({ x: 465, y: PH - 420, width: 130, height: 16, color: rgb(1,1,1) });
+    p3.drawText(`KES ${fmt(totalShipping)}`, { x: 465, y: PH - 420, size: 11, font: helvBold });
 
-  // Buyer
-  drawBold("Buyer", ML, 12);
-  advanceBy(25);
-  drawText("Name: ______________________________", ML, 11);
-  advanceBy(22);
-  drawText("Signature: __________________________", ML, 11);
-  advanceBy(22);
-  drawText("Date: ______________________________", ML, 11);
-  advanceBy(40);
+    // ========== TABLE ==========
+    // Clear entire table area
+    p3.drawRectangle({ x: 55, y: PH - 650, width: 480, height: 190, color: rgb(1,1,1) });
 
-  // Witness
-  drawBold("Buyer's referee/witness", ML, 12);
-  advanceBy(25);
-  drawText("Name: ______________________________", ML, 11);
-  advanceBy(22);
-  drawText("Signature: __________________________", ML, 11);
-  advanceBy(22);
-  drawText("Date: ______________________________", ML, 11);
-  advanceBy(22);
-  drawText("ID No.  ______________________________", ML + 20, 11);
+    // Table headers
+    const colX = [65, 171, 273, 357];
+    const headers = ["EQUIPMENT NAME", "BUYING PRICE", "SHIPPING FEE", "IMPORTERS SERVICE FEE"];
+    headers.forEach((h, i) => p3.drawText(h, { x: colX[i], y: PH - 464, size: 11, font: helvBold }));
+
+    // Table rows
+    let rowY = PH - 494;
+    for (let i = 0; i < contract.equipments.length; i++) {
+      const eq = contract.equipments[i];
+      const words = eq.name.toUpperCase().split(" ");
+      let l1 = words.slice(0, 2).join(" ");
+      let l2 = words.slice(2).join(" ");
+      if (words.length <= 2) { l1 = words.join(" "); l2 = ""; }
+
+      p3.drawText(l1, { x: colX[0], y: rowY, size: 11, font: helv });
+      if (l2) {
+        rowY -= 14;
+        p3.drawText(l2, { x: colX[0], y: rowY, size: 11, font: helv });
+        rowY += 14;
+      }
+
+      p3.drawText(fmt(eq.buyingPrice), { x: colX[1], y: rowY, size: 11, font: helv });
+      p3.drawText(fmt(eq.shippingFee), { x: colX[2], y: rowY, size: 11, font: helv });
+      p3.drawText(fmt(eq.importerFee), { x: colX[3], y: rowY, size: 11, font: helv });
+
+      rowY -= 32;
+    }
+
+    // Totals
+    rowY -= 5;
+    p3.drawText("TOTALS", { x: colX[0], y: rowY, size: 12, font: helvBold });
+    p3.drawText(fmt(totalBP), { x: colX[1], y: rowY, size: 12, font: helvBold });
+    p3.drawText(fmt(totalShipping), { x: colX[2], y: rowY, size: 12, font: helvBold });
+    p3.drawText(fmt(totalImporterFee), { x: colX[3], y: rowY, size: 12, font: helvBold });
+  }
+
+  // Page 4 stays exactly as-is from template (signatures, no changes)
 
   return await doc.save();
 }
