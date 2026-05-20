@@ -231,7 +231,7 @@ export async function generateContractPdf(
   // Bullet 1
   doc.setFont("helvetica", "normal");
   doc.text("\u2022", 39, 66);
-  const totalPrefix = `Total Price/cost for the ${countWord} (${eqCount}) equipment: `;
+  const totalPrefix = `Total Price/cost for the ${countWord} (${eqCount}) equipment:`;
   doc.text(totalPrefix, 57, 66);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -264,11 +264,8 @@ export async function generateContractPdf(
     85,
     172
   );
-  doc.text("standing at", 85, 188);
-  doc.setFont("helvetica", "bold");
-  doc.text(kes(totalShipping), 160, 188);
-  doc.setFont("helvetica", "normal");
-  doc.text(".", 160 + doc.getTextWidth(kes(totalShipping)), 188);
+  const balanceLine = `standing at ${kes(totalShipping)}.`;
+  doc.text(balanceLine, 85, 188);
 
   // Bullet 4
   doc.text("\u2022", 39, 210);
