@@ -124,23 +124,20 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   tx += reg.widthOfTextAtSize(tPart1, 11) + 1;
   page.drawText(tPart2, { x: tx, y: Y(293), size: 11, font: bold });
 
-  // --- 1. Purpose (word-wrapped to fit margins) ---
+  // --- 1. Purpose (2 lines like original, fitting within margins) ---
   page.drawText("1. ", { x: 22, y: Y(340), size: 12, font: bold });
   page.drawText("Purpose of the Agreement", { x: 36, y: Y(340), size: 12, font: bold });
-  // Line 1: fits within ~520pt (page width - margins)
-  page.drawText("The purpose of this Agreement is to outline the terms under which the Importer", { x: 22, y: Y(361), size: 11, font: reg });
-  // Line 2: continuation
-  page.drawText("agrees to import, ship, customs clear and supply the following machine(s) to the", { x: 22, y: Y(378), size: 11, font: reg });
-  // Line 3: continuation
-  page.drawText("buyer/customer.", { x: 22, y: Y(395), size: 11, font: reg });
+  // Line 1 (longer, fits within ~520pt usable width)
+  page.drawText("The purpose of this Agreement is to outline the terms under which the Importer agrees to", { x: 22, y: Y(361), size: 11, font: reg });
+  // Line 2
+  page.drawText("import, ship, customs clear and supply the following machine(s) to the buyer/customer.", { x: 22, y: Y(378), size: 11, font: reg });
 
   // --- 2. Description of Machines ---
   page.drawText("2. ", { x: 22, y: Y(401), size: 12, font: bold });
   page.drawText("Description of the Machines", { x: 36, y: Y(401), size: 12, font: bold });
 
-  // ===== DYNAMIC MACHINES =====
-  // Start machine content at y≈422
-  let machineY = 422;
+  // ===== DYNAMIC MACHINES (start immediately after heading) =====
+  let machineY = 415; // small gap after heading, machine name starts right away
 
   for (let i = 0; i < contract.equipments.length; i++) {
     const eq = contract.equipments[i];
