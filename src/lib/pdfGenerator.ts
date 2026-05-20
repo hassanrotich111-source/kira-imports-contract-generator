@@ -232,10 +232,8 @@ export async function generateContractPdf(
   doc.setFont("helvetica", "normal");
   doc.text("\u2022", 39, 66);
   const totalPrefix = `Total Price/cost for the ${countWord} (${eqCount}) equipment:`;
-  doc.text(totalPrefix, 57, 66);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(kes(totalBP), 57 + doc.getTextWidth(totalPrefix), 66);
+  const totalFull = totalPrefix + kes(totalBP);
+  doc.text(totalFull, 57, 66);
 
   // Bullet 2
   doc.setFontSize(11);
