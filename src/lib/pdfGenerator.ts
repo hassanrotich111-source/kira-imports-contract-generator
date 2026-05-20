@@ -202,12 +202,11 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   page.drawText("\u2022", { x: 39, y: Y(114), size: 10, font: reg });
   page.drawText("Payment Schedule:", { x: 57, y: Y(114), size: 11, font: reg });
 
-  // o - Upfront (split so "signing" is last word on first line)
+  // o - Upfront (split so "contract" is last word on first line, KES on same line as "signing standing at")
   page.drawText("o", { x: 76, y: Y(137), size: 10, font: reg });
-  page.drawText("Upfront payment for the machines buying price cost + importers service fee on contract", { x: 85, y: Y(137), size: 11, font: reg });
-  page.drawText("signing standing at", { x: 85, y: Y(152), size: 11, font: reg });
-  page.drawText(`KES ${fmt(upfrontPayment)}`, { x: 85, y: Y(167), size: 11, font: bold });
-  page.drawText(".", { x: 85 + bold.widthOfTextAtSize(`KES ${fmt(upfrontPayment)}`, 11), y: Y(167), size: 11, font: reg });
+  page.drawText("Upfront payment for the machines buying price cost + importers service fee on", { x: 85, y: Y(137), size: 11, font: reg });
+  const signingLine = `contract signing standing at KES ${fmt(upfrontPayment)}.`;
+  page.drawText(signingLine, { x: 85, y: Y(152), size: 11, font: reg });
 
   // o - Balance (split to avoid overlap)
   page.drawText("o", { x: 76, y: Y(190), size: 10, font: reg });
@@ -216,9 +215,9 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   page.drawText(`KES ${fmt(totalShipping)}`, { x: 160, y: Y(205), size: 11, font: bold });
   page.drawText(".", { x: 160 + bold.widthOfTextAtSize(`KES ${fmt(totalShipping)}`, 11), y: Y(205), size: 11, font: reg });
 
-  // Bullet 4 - Cost table intro
-  page.drawText("\u2022", { x: 39, y: Y(200), size: 10, font: reg });
-  page.drawText("Cost as outlined in the below table:", { x: 57, y: Y(200), size: 11, font: reg });
+  // Bullet 4 - Cost table intro (moved down below balance section to avoid overlap)
+  page.drawText("\u2022", { x: 39, y: Y(228), size: 10, font: reg });
+  page.drawText("Cost as outlined in the below table:", { x: 57, y: Y(228), size: 11, font: reg });
 
   // ===== DYNAMIC TABLE =====
   // White out table area
@@ -226,14 +225,14 @@ export async function generateContractPdf(contract: Contract, settings: Settings
 
   // Headers
   const cols = [65, 171, 273, 357];
-  page.drawText("EQUIPMENT NAME", { x: cols[0], y: Y(232), size: 11, font: bold });
-  page.drawText("BUYING PRICE", { x: cols[1], y: Y(232), size: 11, font: bold });
-  page.drawText("SHIPPING FEE", { x: cols[2], y: Y(232), size: 11, font: bold });
-  page.drawText("IMPORTERS SERVICE FEE", { x: cols[3], y: Y(232), size: 11, font: bold });
+  page.drawText("EQUIPMENT NAME", { x: cols[0], y: Y(252), size: 11, font: bold });
+  page.drawText("BUYING PRICE", { x: cols[1], y: Y(252), size: 11, font: bold });
+  page.drawText("SHIPPING FEE", { x: cols[2], y: Y(252), size: 11, font: bold });
+  page.drawText("IMPORTERS SERVICE FEE", { x: cols[3], y: Y(252), size: 11, font: bold });
 
   // Draw rows dynamically - adjust row spacing based on equipment count
   const rowSpacing = contract.equipments.length <= 4 ? 32 : Math.floor(140 / contract.equipments.length);
-  let rowY = 260;
+  let rowY = 280;
 
   for (let i = 0; i < contract.equipments.length; i++) {
     const eq = contract.equipments[i];
