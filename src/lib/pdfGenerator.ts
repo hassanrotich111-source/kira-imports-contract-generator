@@ -185,9 +185,9 @@ export async function generateContractPdf(
       : [`Quantity: ${eq.quantity}`];
 
     const mHeight =
-      25 + bullets.length * 16 + (eq.imageData ? 160 : 0);
+      16 + bullets.length * 16 + (eq.imageData ? 145 : 0) + 10;
 
-    if (my + mHeight > 780) {
+    if (my + mHeight > 800) {
       doc.addPage();
       my = 40;
     }
