@@ -202,17 +202,19 @@ export async function generateContractPdf(contract: Contract, settings: Settings
   page.drawText("\u2022", { x: 39, y: Y(114), size: 10, font: reg });
   page.drawText("Payment Schedule:", { x: 57, y: Y(114), size: 11, font: reg });
 
-  // o - Upfront
+  // o - Upfront (split so "signing" is last word on first line)
   page.drawText("o", { x: 76, y: Y(137), size: 10, font: reg });
-  page.drawText("Upfront payment for the machines buying price cost + importers service fee on contract signing standing at", { x: 85, y: Y(137), size: 11, font: reg });
-  page.drawText(`KES ${fmt(upfrontPayment)}`, { x: 77, y: Y(155), size: 11, font: bold });
-  page.drawText(".", { x: 77 + bold.widthOfTextAtSize(`KES ${fmt(upfrontPayment)}`, 11), y: Y(155), size: 11, font: reg });
+  page.drawText("Upfront payment for the machines buying price cost + importers service fee on contract", { x: 85, y: Y(137), size: 11, font: reg });
+  page.drawText("signing standing at", { x: 85, y: Y(152), size: 11, font: reg });
+  page.drawText(`KES ${fmt(upfrontPayment)}`, { x: 85, y: Y(167), size: 11, font: bold });
+  page.drawText(".", { x: 85 + bold.widthOfTextAtSize(`KES ${fmt(upfrontPayment)}`, 11), y: Y(167), size: 11, font: reg });
 
-  // o - Balance
-  page.drawText("o", { x: 76, y: Y(178), size: 10, font: reg });
-  page.drawText("Balance of shipping fee upon equipment arrival, at the point of collection standing at", { x: 85, y: Y(178), size: 11, font: reg });
-  page.drawText(`KES ${fmt(totalShipping)}`, { x: 465, y: Y(178), size: 11, font: bold });
-  page.drawText(".", { x: 521, y: Y(178), size: 11, font: reg });
+  // o - Balance (split to avoid overlap)
+  page.drawText("o", { x: 76, y: Y(190), size: 10, font: reg });
+  page.drawText("Balance of shipping fee upon equipment arrival, at the point of collection", { x: 85, y: Y(190), size: 11, font: reg });
+  page.drawText("standing at", { x: 85, y: Y(205), size: 11, font: reg });
+  page.drawText(`KES ${fmt(totalShipping)}`, { x: 160, y: Y(205), size: 11, font: bold });
+  page.drawText(".", { x: 160 + bold.widthOfTextAtSize(`KES ${fmt(totalShipping)}`, 11), y: Y(205), size: 11, font: reg });
 
   // Bullet 4 - Cost table intro
   page.drawText("\u2022", { x: 39, y: Y(200), size: 10, font: reg });
